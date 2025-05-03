@@ -13,15 +13,23 @@ from idaapi import PluginForm
 from PyQt5 import QtWidgets, QtGui
 
 
+
 PLUGIN_NAME = 'ObjCExplorer'
 
 
 def cstr(ea):
+    """
+    Get C string at the specified address with better error handling for IDA 9
+    """
     try:
-        return ida_bytes.get_strlit_contents(ea, -1, ida_nalt.STRTYPE_C).decode()
+        string_content = ida_bytes.get_strlit_contents(ea, -1, ida_nalt.STRTYPE_C)
+        if string_content is None:
+            return "<invalid_string>"
+        return string_content.decode('utf-8', errors='replace')
     except Exception as e:
-        print('Unable to decode string at %s' % hex(ea))
-        raise e
+        print(f"String decoding error at 0x{ea:x}: {str(e)}")
+        return f"<error_at_0x{ea:x}>"
+
 
 
 class Objc2Class(object):
@@ -351,8 +359,7 @@ class ObjCExplorer(ida_idaapi.plugin_t):
         return idaapi.IDA_SDK_VERSION >= 700
 
     def init(self):
-        return (ida_idaapi.PLUGIN_OK if
-                self.is_compatible() else ida_idaapi.PLUGIN_SKIP)
+        return ida_idaapi.PLUGIN_OK if idaapi.IDA_SDK_VERSION >= 750 else ida_idaapi.PLUGIN_SKIP
 
     def run(self, arg):
         kw.show_wait_box('Building class information')
